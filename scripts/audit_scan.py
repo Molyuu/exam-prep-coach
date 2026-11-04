@@ -34,6 +34,23 @@ RIGHT = re.compile(r"\\right(?!arrow|rightarrow|leftrightarrow|leftharpoonup|rig
 ENV = re.compile(r"\\(begin|end)\{([^}]*)\}")
 
 
+def mask_code(text):
+    """屏蔽围栏代码块与行内代码（保留行号与长度），避免 $VAR 之类被当成公式。"""
+    out, fence = [], None
+    for line in text.split("\n"):
+        s = line.strip()
+        if fence is None and (s.startswith("```") or s.startswith("~~~")):
+            fence = s[:3]; out.append(""); continue
+        if fence is not None:
+            if s.startswith(fence):
+                fence = None
+            out.append(""); continue
+        out.append(line)
+    joined = "\n".join(out)
+    # 行内代码 `...` 同样屏蔽（保留长度，行号与位置不变）
+    return re.sub(r"`[^`\n]*`", lambda m: " " * len(m.group(0)), joined)
+
+
 def strip_block_math(text):
     """去掉 $$...$$ 块，便于单独数行内 $。"""
     return re.sub(r"\$\$.*?\$\$", "", text, flags=re.S)
@@ -58,7 +75,7 @@ def line_of(text, pos):
 
 
 def scan_file(p):
-    text = p.read_text(encoding="utf-8", errors="replace")
+    text = mask_code(p.read_text(encoding="utf-8", errors="replace"))
     hard, soft = [], []
 
     # ① LaTeX 结构
@@ -103,7 +120,7 @@ def scan_solutions(files):
     """② 详解每题是否有答案。题号形如 **1.**；题号每天重新编号，按最近的 Day 标题归属。"""
     hard, soft, total, missing = [], [], 0, []
     for p in files:
-        text = p.read_text(encoding="utf-8", errors="replace")
+        text = mask_code(p.read_text(encoding="utf-8", errors="replace"))
         heads = [(m.start(), int(m.group(1) or m.group(2)))
                  for m in re.finditer(r"^#{1,4}\s*.*?(?:Day\s*(\d+)|第\s*(\d+)\s*天)", text, re.M)]
         marks = [(m.start(), m.group(1)) for m in re.finditer(r"^\s*\*\*(\d+)[.．]\*\*", text, re.M)]
