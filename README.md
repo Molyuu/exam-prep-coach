@@ -111,7 +111,7 @@ git clone https://github.com/Molyuu/exam-prep-coach.git ~/.codex/skills/exam-pre
 ## 目录结构
 
 ```text
-SKILL.md                     # 主入口：立场、10 条铁律、五阶段、交付闸门、降级模式
+SKILL.md                     # 主入口：立场、12 条铁律、五阶段、交付闸门、降级模式
 references/
   intake.md                  # 问什么、怎么写考试画像
   reverse-engineer.md        # 核心算法：卷面 → 考点矩阵 → 分级 → 不复习清单
@@ -119,9 +119,9 @@ references/
   lecture.md                 # 零基础讲解的固定骨架与反例
   practice.md                # 习题三档设计、变式生成、详解规范
   subject-profiles.md        # 范围判定与细分：计算型/代码型/实验型/开卷载具；文科类不适用
-  audit.md                   # 内容审查：盲解复核、12 类讲解错误、11 类解答错误
+  audit.md                   # 内容审查：盲解复核、12 类讲解错误、10 类解答错误
   delivery.md                # 目录命名、公式约定、增量维护
-templates/                   # 6 个可直接复制填空的骨架
+templates/                   # 7 个可直接复制填空的骨架
 scripts/
   pdf_prepare.py             # 真题入库：逐页渲染页面图，供读图转写
   audit_scan.py              # 内容机械扫描：LaTeX 结构、答案缺失、禁词
