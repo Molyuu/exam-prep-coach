@@ -70,13 +70,21 @@ def sa_entries(route):
 
 
 def sa_section_counts(route):
-    """→ {级别: 条目数}：抓「S/A 级小标题写了却一条没填」的空壳小节。"""
+    """→ {级别: (可解析条目数, 是否有正文)}。
+
+    区分两种"没内容"：
+      - 空壳小节（只有标题、正文也没有）→ 硬失败，多半是照模板复制后忘了填；
+      - 有正文但解析不到编号条目（比如改成了无序列表）→ 只提示，属格式问题。
+    """
     out = {}
     for sec in re.finditer(r"^#{2,4}\s*([SAB])\s*级.*?$(.*?)(?=^#{1,4}\s|\Z)", route, re.M | re.S):
         body = sec.group(2)
         found = (re.findall(r"^\s*(\d+)[.．]\s*\*\*(.+?)\*\*", body, re.M)
                  or re.findall(r"^(\d+)[.．]\s*(\S.*)$", body, re.M))
-        out[sec.group(1)] = out.get(sec.group(1), 0) + len(found)
+        has_text = any(ln.strip() and not ln.lstrip().startswith("#") for ln in body.split("\n"))
+        g = sec.group(1)
+        n, txt = out.get(g, (0, False))
+        out[g] = (n + len(found), txt or has_text)
     return out
 
 
@@ -142,14 +150,21 @@ def check(root):
 
     # ② S/A 级考点覆盖（含「小节写了却一条没填」检测）
     counts = sa_section_counts(texts["route"])
-    empty = [g for g in ("S", "A") if g in counts and counts[g] == 0]
+    empty = [g for g in ("S", "A") if g in counts and counts[g][0] == 0 and not counts[g][1]]
+    unparsed = [g for g in ("S", "A") if g in counts and counts[g][0] == 0 and counts[g][1]]
     entries = sa_entries(texts["route"])
     if empty:
         add("② S/A 考点覆盖（讲解/习题）", False,
             f"{'、'.join(g + ' 级' for g in empty)} 小节只有标题、一条都没填（多半是照模板复制后忘了填）")
         res["missing"].append(f"S/A 级空壳小节：{'、'.join(g + ' 级' for g in empty)}")
     elif not entries:
-        add("② S/A 考点覆盖（讲解/习题）", False, "复习路线里找不到 S 级/A 级小节及其编号条目")
+        if unparsed:
+            add("② S/A 考点覆盖（讲解/习题）", True,
+                f"{'、'.join(g + ' 级' for g in unparsed)} 小节有内容但解析不到编号条目，"
+                f"无法核对覆盖（格式建议用 `1. **考点名**`）", hard=False)
+            res["warnings"].append(f"S/A 小节格式无法解析：{'、'.join(g + ' 级' for g in unparsed)}")
+        else:
+            add("② S/A 考点覆盖（讲解/习题）", False, "复习路线里找不到 S 级/A 级小节及其编号条目")
     else:
         miss_lec, miss_ex, miss_sol, only_one = [], [], [], []
         for grade, num, title in entries:
@@ -177,6 +192,10 @@ def check(root):
                 f"详解正文里没直接出现这些考点名（由 ① 的题号对应保证覆盖，仅提示）：{'、'.join(miss_sol)}")
         if only_one:
             res["warnings"].append(f"只在讲解或只在习题集出现：{'、'.join(only_one)}")
+        if unparsed:
+            res["warnings"].append(
+                f"{'、'.join(g + ' 级' for g in unparsed)} 小节有内容但解析不到编号条目，未参与覆盖核对"
+                f"（建议统一写成 `1. **考点名**`）")
 
     # ③ Day 分节一一对应
     d_lec, d_ex, d_sol = (parse_days(texts["lecture"]), parse_days(texts["exercise"]),

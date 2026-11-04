@@ -109,7 +109,7 @@ def scan_file(p):
     for m in re.finditer(r"同型[：:]\s*([^\n）)；;]{1,40})", text):
         ref = m.group(1)
         has_year = bool(re.search(r"\d{2}\s*[-–—]\s*\d{2}|\d{4}|\b(19|20)\d{2}\b", ref))
-        has_num = bool(re.search(r"选择|填空|解答|综合|证明|判断|第\s*\d+|\d+\s*题|[一二三四五六七八九十]+\s*\d+", ref))
+        has_num = bool(re.search(r"选择|填空|解答|综合|证明|判断|第\s*\d+|\d+\s*题|[一二三四五六七八九十]+\s*[.．、]?\s*\d+", ref))
         if not (has_year and has_num):
             soft.append(f"第 {line_of(text, m.start())} 行「同型：{ref.strip()}」缺年份或题号")
 
@@ -152,7 +152,11 @@ def main():
     files = sorted({p for pat in TARGETS for p in root.glob(pat) if p.is_file()})
     sols = [p for p in files if "详解" in p.name]
     if not files:
-        print(f"❌ 在 {root} 里找不到任何待审产物（{'、'.join(TARGETS)}）", file=sys.stderr)
+        hint = ""
+        if list(root.glob("*.md")):
+            hint = ("\n   这个目录里有 .md 但没有讲解/习题/详解/路线——看起来是 markdown/ 转写稿目录。\n"
+                    "   转写稿请用 pdf_prepare.py 处理；audit_scan.py 审的是 ai_study/ 下的产出。")
+        print(f"❌ 在 {root} 里找不到任何待审产物（{'、'.join(TARGETS)}）{hint}", file=sys.stderr)
         return 2
 
     res = {"dir": str(root), "files": [str(p) for p in files], "hard": [], "soft": [], "strict": args.strict}

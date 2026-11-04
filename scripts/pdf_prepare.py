@@ -16,6 +16,9 @@ MIN_TEXT_AVG = 40      # 页均低于该值：判为扫描件
 SPARSE_PAGE = 15       # 单页低于该值：该页无文字层，需视觉补读
 DENSE_PAGE = 400       # 单页低于该值：公式/图密集，须加 --with-pages 校对公式（与 delivery.md 同口径）
 DEFAULT_DPI = 160      # 落在 150–200 之间
+CID_WARN = 0.01        # (cid:xx) 占比超过它：提示文字部分不可读
+CID_BAD = 0.05         # 超过它：整份文本层判为乱码，直接走视觉转写
+CID_RE = re.compile(r"\(cid:\d+\)")
 SWIFT_SRC = r'''// Swift 助手：info 报每页字符数，render 逐页渲染 PNG（CoreGraphics/PDFKit）
 import Foundation
 import CoreGraphics
@@ -80,6 +83,22 @@ def markitdown_text(pdf):
     if r.returncode:
         raise PdfError(f"markitdown 抽取失败：{(r.stderr or r.stdout).strip()[:400]}")
     return r.stdout
+
+def cid_stats(pdf):
+    """→ (cid 标记数, 占全部字符比例)。文本层缺字形映射时会大量出现 (cid:32) 这类占位符。
+
+    关键：这类乱码会**抬高**字符数，所以"每页字符多"恰恰可能是文本层不可用。
+    markitdown 不可用时返回 (None, None)。
+    """
+    try:
+        text = markitdown_text(pdf)
+    except PdfError:
+        return None, None
+    if not text:
+        return 0, 0.0
+    hits = CID_RE.findall(text)
+    return len(hits), len("".join(hits)) / len(text)
+
 
 # Adobe Symbol 字体私有区（PUA）字形解码：标记位 → 真实字符
 SYMBOL = dict(zip(range(0x20, 0x7F), map(chr, range(0x20, 0x7F))))   # Symbol 的 ASCII 段原样
@@ -171,6 +190,19 @@ def probe_one(pdf):
         warn.append("文本层字符数过低，markitdown 会产出近乎空文件——不要走 text 路线。")
     else:
         route, scanned = "text", False
+        n_cid, cid_ratio = cid_stats(pdf)
+        if cid_ratio is not None and cid_ratio >= CID_BAD:
+            route = "vision"
+            verdict = (f"文本层是乱码：{cid_ratio:.0%} 的字符是 (cid:xx) 未映射字形，"
+                       f"字符数虽高但不可读——必须走视觉转写，extract 会逐页渲染 PNG。")
+            warn.append("这是典型的『字符多但全是乱码』：不要因为字符数高就判文本层可用。")
+            return {"file": str(pdf.resolve()), "name": pdf.name, "ok": True, "pages": pages,
+                    "has_text_layer": False, "chars_per_page": chars, "total_chars": total,
+                    "avg_chars_per_page": avg, "scanned_suspect": False, "sparse_pages": [],
+                    "route": route, "engine": engine, "cid_ratio": cid_ratio,
+                    "verdict": verdict, "warnings": warn}
+        if cid_ratio is not None and cid_ratio >= CID_WARN:
+            warn.append(f"{cid_ratio:.1%} 的字符是 (cid:xx) 乱码：公式部分多半读不出来，建议改用视觉转写。")
         dense = [i + 1 for i, c in enumerate(chars) if c < DENSE_PAGE] if chars else []
         verdict = "文本层可用；公式/图为主的科目仍须加 --with-pages，公式以页面图为准。"
         if dense:
