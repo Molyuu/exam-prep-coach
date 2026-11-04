@@ -59,10 +59,10 @@
 
 ## 4. P1 入库：卷子转文本
 
-**一律读图转写，不抽 PDF 文本层。** 文本层实测不可信：分式、上下标散架，`(cid:xx)` 乱码会把字符数抬高到"看起来很完整"，Symbol 字体还会把 $\alpha$ 解成 `a`。电子版、扫描件、文字类科目都走同一条路。
+**一律读图转写，不抽 PDF 文本层。** 文本层实测不可信：分式、上下标散架，`(cid:xx)` 乱码会把字符数抬高到"看起来很完整"，Symbol 字体还会把 $\alpha$ 解成 `a`。电子版、扫描件都走同一条路。
 
 ```bash
-export SKILL=~/.dsh/skills/exam-prep-coach     # 以 skill 装载时的 Base directory 为准
+export SKILL=<装载路径>     # 以 skill 装载时的 Base directory 为准，如 ~/.codex/skills/exam-prep-coach
 python3 "$SKILL/scripts/pdf_prepare.py" *.pdf --out markdown/     # 可加 --dpi 200 看清小字
 ```
 
