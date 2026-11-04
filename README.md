@@ -69,6 +69,7 @@ git clone https://github.com/Molyuu/exam-prep-coach.git ~/.dsh/skills/exam-prep-
 | P2 反推 | 卷面结构 → 考点 × 年份矩阵 → 期望分 → S/A/B | 每个 S 级考点写出「标准步骤」 |
 | P3 编排 | 按剩余天数排日计划 | 每天有可测量的验收 |
 | P4 生产 | 讲解 → 习题 → 详解 | 覆盖矩阵 100% |
+| P4.5 审查 | 机械扫描 → **盲解复核** → 修 → 重验 | 致命错误 = 0，报告含覆盖清单 |
 | P5 自检 | 跑校验脚本 + 过交付闸门 | 无 `[FAIL]` 才交付 |
 
 ## 目录结构
@@ -82,10 +83,12 @@ references/
   lecture.md                 # 零基础讲解的固定骨架与反例
   practice.md                # 习题三档设计、变式生成、详解规范
   subject-profiles.md        # 学科适配：计算型/记忆型/语言型/代码型/开卷/面试
+  audit.md                   # 内容审查：盲解复核、12 类讲解错误、11 类解答错误
   delivery.md                # 目录命名、公式约定、增量维护
 templates/                   # 6 个可直接复制填空的骨架
 scripts/
   pdf_prepare.py             # 真题入库：体检、抽文本、逐页渲染页面图
+  audit_scan.py              # 内容机械扫描：LaTeX 结构、答案缺失、禁词
   check_coverage.py          # 交付自检：题号对应、考点覆盖、Day 对齐
 ```
 
@@ -99,11 +102,13 @@ scripts/
 | `pdf_prepare.py` 文本提取 | [`markitdown`](https://github.com/microsoft/markitdown) | `pip install markitdown` |
 | `pdf_prepare.py` 页面渲染 | macOS + `swift`（Xcode Command Line Tools） | 仅在需要把扫描件/公式页转成图片时用到；纯文本卷不需要 |
 | `check_coverage.py` | 无 | 纯标准库 |
+| `audit_scan.py` | 无 | 纯标准库 |
 
 ```bash
 python3 "$SKILL/scripts/pdf_prepare.py" probe 试卷.pdf
 python3 "$SKILL/scripts/pdf_prepare.py" extract 试卷.pdf --out markdown/ --with-pages
-python3 "$SKILL/scripts/check_coverage.py" ai_study/
+python3 "$SKILL/scripts/audit_scan.py" ai_study/            # P4.5 机械扫描
+python3 "$SKILL/scripts/check_coverage.py" ai_study/ --strict
 ```
 
 ## 几个关键设计
@@ -114,6 +119,7 @@ python3 "$SKILL/scripts/check_coverage.py" ai_study/
 - **信号 → 动作**：讲「看到 $u^v$ 就先写成 $e^{v\ln u}$」，不讲这个公式怎么来的。
 - **卡点定位**：详解不只给正确答案，还要说「你只写到这一步，说明缺哪个动作」。
 - **可被检验**：`check_coverage.py` 会硬性校验题号对应、考点覆盖、S/A 小节有没有留空。
+- **审查必须盲解**：生成内容的模型重读自己的输出等于复述，发现不了错。所以审查要求先盖住原文自己算一遍，再对照，并且每条错误都要给"我怎么验的"。讲解讲错、详解答错是两份材料里代价最高的两类错误。
 
 ## 边界与免责
 

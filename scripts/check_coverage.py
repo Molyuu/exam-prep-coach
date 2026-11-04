@@ -12,6 +12,7 @@
   ④ markdown/ 原始卷子存在且非空（目录不存在则跳过）
   ⑤ 五件产物齐全：错题表.md、AGENTS.md（缺了只提示，不判失败）
 硬失败 exit 1，全通过 exit 0；有提示但硬项全过也 exit 0，只是收工语会变成"需人工确认"。
+  加 --strict：② 之外的提示项（含 ⑤ 三件产物与审查报告）全部升级为硬失败，交付前建议用它跑一遍。
 """
 import argparse
 import json
@@ -212,10 +213,11 @@ def check(root):
             res["missing"].append(f"markdown 转写稿为空或过短：{empty}")
 
     # ⑤ 五件产物齐全（只提示，不判失败：老工作区常常没建错题表）
-    for fname, label in (("错题表.md", "错题表"), ("AGENTS.md", "AGENTS.md 写作约定")):
-        cands = [p for p in list(root.glob(fname)) + list(root.parent.glob(fname)) if p.is_file()]
-        add(f"⑤ {label}", bool(cands),
-            str(cands[0]) if cands else f"未找到 {fname}（建议补齐；只提示不判失败）", hard=False)
+    for pat, label in (("错题表.md", "错题表"), ("AGENTS.md", "AGENTS.md 写作约定"),
+                       ("审查报告*.md", "审查报告（内容审查结论）")):
+        cands = [p for p in list(root.glob(pat)) + list(root.parent.glob(pat)) if p.is_file()]
+        add(f"⑤ {label}", bool(cands), str(cands[0]) if cands else
+            f"未找到 {pat}（建议补齐；交付前应存在，--strict 下判失败）", hard=False)
 
     res["ok"] = all(c["ok"] for c in res["checks"] if c["hard"])
     return res
@@ -247,6 +249,7 @@ def main():
     ap = argparse.ArgumentParser(description="学习工作区交付自检：产物齐全、题号对应、考点覆盖、Day 对齐。")
     ap.add_argument("dir", nargs="?", help="工作区目录，默认当前目录（通常是 ai_study）")
     ap.add_argument("--dir", dest="dir_opt", help="同上（等价写法）")
+    ap.add_argument("--strict", action="store_true", help="交付用：提示项（含审查报告）全部升级为硬失败")
     ap.add_argument("--json", action="store_true", help="输出机读 JSON")
     args = ap.parse_args()
     root = Path(args.dir_opt or args.dir or ".").resolve()
@@ -254,6 +257,11 @@ def main():
         print(f"❌ 目录不存在：{root}", file=sys.stderr)
         return 2
     res = check(root)
+    if args.strict:
+        for c in res["checks"]:
+            c["hard"] = True
+        res["ok"] = all(c["ok"] for c in res["checks"])
+        res["strict"] = True
     if args.json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
     else:
