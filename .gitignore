@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 学习工作区产物（真题、答案、个人笔记）不要进仓库
+markdown/
+ai_study/
+*.pdf

@@ -1,0 +1,4 @@
+**路径约定（先读这条）**：脚本在 skill 装载目录里，不在学生工作区。先 `export SKILL=<加载 skill 时给出的 Base directory>`（通常 `~/.dsh/skills/exam-prep-coach`），再用 `python3 "$SKILL/scripts/xxx.py"` 调用；写成 `scripts/xxx.py` 会在工作区里找不到文件（exit 2）。
+**P1 体检**：`python3 "$SKILL/scripts/pdf_prepare.py" probe <PDF...> [--json]` → 每份卷子给出 页数 / 文本层 / 每页字符数 / 推荐路线。`vision`（页字符数≈0）= 扫描件，必须逐页读图转写；`text` = 文本层可用，但**任何页每页字符数 <400 都说明该页公式/图密集**，数学/物理/化学卷要加 `--with-pages`，否则公式会被抽成散架文本。
+**P1 入库**：`python3 "$SKILL/scripts/pdf_prepare.py" extract <PDF> --out markdown/ [--dpi 160] [--with-pages]` → `text` 路线产出 `<out>/<stem>.md`（保留题号；公式为文本层原样，**禁止猜写 LaTeX**，拿不准标「⚠️公式降级」）；`--with-pages` 额外渲染全部页面图到 `markdown/_pages/`，公式以图为准；`vision` 路线只渲染页面图并打印绝对路径，逐页读图转写后再落盘 `<out>/<stem>.md`。
+**P5 自检**：`python3 "$SKILL/scripts/check_coverage.py" <工作区>/ai_study [--json]`（默认扫当前目录）核 ①题号↔详解 ②S/A 考点覆盖与空壳小节 ③Day 分节对齐 ④`markdown/` 原始卷子非空 ⑤错题表与 AGENTS.md。①②③④ 是硬失败（exit 1），⑤ 只 [WARN]；**exit 0 且无 [FAIL] 才可交付**，有 [WARN] 需人工确认。
