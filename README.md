@@ -65,7 +65,7 @@ git clone https://github.com/Molyuu/exam-prep-coach.git ~/.dsh/skills/exam-prep-
 | 阶段 | 做什么 | 关键判据 |
 |---|---|---|
 | P0 立项 | 问 4 个问题，建立考试画像 | 知道剩余天数、有无真题、目标分 |
-| P1 入库 | 真题 PDF → Markdown（扫描件走视觉转写） | 题号完整、答案齐全、公式可读 |
+| P1 入库 | 真题 PDF → 逐页页面图 → agent 读图转写成 Markdown | 题号完整、答案齐全、公式可读 |
 | P2 反推 | 卷面结构 → 考点 × 年份矩阵 → 期望分 → S/A/B | 每个 S 级考点写出「标准步骤」 |
 | P3 编排 | 按剩余天数排日计划 | 每天有可测量的验收 |
 | P4 生产 | 讲解 → 习题 → 详解 | 覆盖矩阵 100% |
@@ -87,7 +87,7 @@ references/
   delivery.md                # 目录命名、公式约定、增量维护
 templates/                   # 6 个可直接复制填空的骨架
 scripts/
-  pdf_prepare.py             # 真题入库：体检、抽文本、逐页渲染页面图
+  pdf_prepare.py             # 真题入库：逐页渲染页面图，供读图转写
   audit_scan.py              # 内容机械扫描：LaTeX 结构、答案缺失、禁词
   check_coverage.py          # 交付自检：题号对应、考点覆盖、Day 对齐
 ```
@@ -99,14 +99,12 @@ scripts/
 | 脚本 | 依赖 | 说明 |
 |---|---|---|
 | 全部 | Python 3 | 无第三方包 |
-| `pdf_prepare.py` 文本提取 | [`markitdown`](https://github.com/microsoft/markitdown) | `pip install markitdown` |
-| `pdf_prepare.py` 页面渲染 | macOS + `swift`（Xcode Command Line Tools） | 仅在需要把扫描件/公式页转成图片时用到；纯文本卷不需要 |
+| `pdf_prepare.py` | macOS + `swiftc`（Xcode Command Line Tools） | 首次运行编译渲染器并缓存到 `~/Library/Caches/exam-prep-coach/`；不抽文本层，转写全靠读图 |
 | `check_coverage.py` | 无 | 纯标准库 |
 | `audit_scan.py` | 无 | 纯标准库 |
 
 ```bash
-python3 "$SKILL/scripts/pdf_prepare.py" probe 试卷.pdf
-python3 "$SKILL/scripts/pdf_prepare.py" extract 试卷.pdf --out markdown/ --with-pages
+python3 "$SKILL/scripts/pdf_prepare.py" 试卷.pdf --out markdown/   # → markdown/_pages/*.png
 python3 "$SKILL/scripts/audit_scan.py" ai_study/            # P4.5 机械扫描
 python3 "$SKILL/scripts/check_coverage.py" ai_study/ --strict
 ```
@@ -125,7 +123,7 @@ python3 "$SKILL/scripts/check_coverage.py" ai_study/ --strict
 
 - 仓库**不含任何真题、答案或他人笔记**。卷子需要你自己提供。
 - 教学方法与模板只是经验总结，不保证分数；请自行判断是否适用于你的课程。
-- 扫描件转写质量取决于源文件清晰度，公式拿不准时 skill 明确要求标注「公式降级」，禁止猜写 LaTeX。
+- 转写质量取决于源文件清晰度，公式看不清时 skill 要求标注「（?）」，禁止猜写 LaTeX。
 - 本 skill 内容为中文。
 
 ## License

@@ -10,7 +10,7 @@
 ├── <原始卷子>.pdf / .docx
 ├── markdown/                       # 转写后的卷子
 │   ├── <卷名>.md
-│   └── _pages/<卷名>-p01.png       # 扫描件页面图，供视觉转写
+│   └── _pages/<卷名>-p01.png       # 页面图，转写的唯一依据
 └── ai_study/
     ├── 复习路线_<范围>.md
     ├── 知识点讲解_Day1-<N>.md
@@ -59,58 +59,17 @@
 
 ## 4. P1 入库：卷子转文本
 
-### 有文本层（电子版 PDF / Word）
+**一律读图转写，不抽 PDF 文本层。** 文本层实测不可信：分式、上下标散架，`(cid:xx)` 乱码会把字符数抬高到"看起来很完整"，Symbol 字体还会把 $\alpha$ 解成 `a`。电子版、扫描件、文字类科目都走同一条路。
 
 ```bash
 export SKILL=~/.dsh/skills/exam-prep-coach     # 以 skill 装载时的 Base directory 为准
-python3 "$SKILL/scripts/pdf_prepare.py" probe *.pdf
-python3 "$SKILL/scripts/pdf_prepare.py" extract "25-26高数I期中试卷.pdf" --out markdown/
+python3 "$SKILL/scripts/pdf_prepare.py" *.pdf --out markdown/     # 可加 --dpi 200 看清小字
 ```
 
-**实测结论：文本层不可信，公式必错。** 拿真实卷子测过，PDF 文本层里
+脚本把每页渲染到 `markdown/_pages/<stem>-pNN.png` 并打印路径与转写目标 `markdown/<stem>.md`（重跑会先清掉同名旧页图）。
+手机拍照/截图本来就是图片，直接读图，不用跑脚本。Word 先导出 PDF。
 
-$$\sin\frac{1}{x}\quad\text{会变成}\quad \texttt{sin} \text{ + 孤立的 } \texttt{x}$$
-
-分式上下标全部散架，`f'(x)` 和分数分母掉到不同行。所以按科目分两条路：
-
-| 卷子类型 | 命 令 | 做法 |
-|---|---|---|
-| 文字题为主（政治、法条、简答） | `extract` | 直接产出 md，人工校对一遍即可 |
-| **公式/图为主（数学、物理、化学、电路）** | `extract --with-pages` | 同时产出 md + 全部页面图；**公式以页面图为准**，文本层只用来抄题号、分值和文字题题干 |
-| 扫描件 | `extract`（自动判 `vision`） | 自动渲染 PNG，逐页读图转写，先转 1 页核对再批量 |
-
-```bash
-# 公式密集卷的标准动作：文本 + 图，双份
-python3 "$SKILL/scripts/pdf_prepare.py" extract "181高数A期中试卷.pdf" --out markdown/ --with-pages
-```
-
-**产物归属要分清**，否则后面会把散架文本当正文用：
-
-| 文件 | 内容 | 用途 |
-|---|---|---|
-| `markdown/_raw/<stem>.md` | 脚本抽出的原始文本（公式必散架） | 留档、查题号与分值 |
-| `markdown/<stem>.md` | 按页面图**人工/视觉重写**的可读版 | 后续所有分析都读这个 |
-| `markdown/_pages/<stem>-pNN.png` | 页面图 | 校对公式的唯一依据 |
-
-`markdown/<stem>.md` 的判据是「公式能在 Obsidian 里正常渲染」；脚本原始产物一律挪进 `_raw/`，不要混在正文旁边。
-
-判断依据有三条，**不要只看字符数**：
-
-| 信号 | 含义 | 处理 |
-|---|---|---|
-| 每页字符数 < 400 | 公式/图密集 | 加 `--with-pages` |
-| `probe` 报 `cid_ratio` > 5% | 文本层是 `(cid:xx)` 乱码 | **字符数再高也不可用**，必须走视觉转写 |
-| 题号缺、公式散架 | 文本层质量差 | 走视觉转写 |
-
-**实测过的坑**：某份答案卷文本层有 2.5 万字符，看起来"很完整"，但其中 17% 是 `(cid:xx)` 未映射字形——字符数被乱码**抬高**了。所以「字符多」不代表「能用」，一定要看 `cid_ratio`。
-
-### 扫描件 / 图片
-
-```bash
-python3 "$SKILL/scripts/pdf_prepare.py" extract "191高数A期中试卷.pdf" --out markdown/
-```
-
-脚本会把每页渲染成 PNG 并打印路径。然后**逐页用视觉转写**，要求：
+然后**逐页读图转写**到 `markdown/<stem>.md`，要求：
 
 1. 题号、分值、括号、下划线全部保留；
 2. 数学式转成 LaTeX，不确定的写成纯文本并用 `（?）` 标注，**不许猜**；

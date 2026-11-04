@@ -47,7 +47,7 @@ whenToUse: 用户提到考试倒计时、发来试卷/模拟卷/考试大纲/老
 | 阶段 | 输入 | 动作 | 产出 | 完成判据 | 细则 |
 |---|---|---|---|---|---|
 | P0 立项 | 用户一句话 | 一次问完 4 个问题；科目非计算型时先判类型 | 考试画像（写在路线文件开头） | 知道科目 / 日期 / 剩余天数 / 有无真题 / 目标分 / 科目类型 | `references/intake.md`、`references/subject-profiles.md` |
-| P1 入库 | PDF、图片、大纲 | 转写 + 体检；**公式密集卷即使有文本层也要 `--with-pages`，公式以页面图为准** | `markdown/` 下逐份卷子 | 每份卷子可读、题号完整、答案齐全 | `scripts/pdf_prepare.py`、`references/delivery.md` |
+| P1 入库 | PDF、图片、大纲 | 逐页渲染页面图 → agent 读图转写；**不用 PDF 文本层** | `markdown/` 下逐份卷子 | 每份卷子可读、题号完整、答案齐全 | `scripts/pdf_prepare.py`、`references/delivery.md` |
 | P2 反推 | 入库后的卷子 | 结构表 → 考点矩阵 → 分级 → 不复习清单 | 考点地图（路线文件前半） | 每个 S 级考点都写出了"标准步骤" | `references/reverse-engineer.md` |
 | P3 编排 | 分级 + 剩余天数 | 按档位排日计划 | `复习路线_<范围>.md` | 每天有验收，最后一天不开新专题 | `references/plan.md` |
 | P4 生产 | 计划 | 讲解 → 习题 → 详解 三件套 | `知识点讲解_*`、`习题集_*`、`*详解*` | 覆盖矩阵 100% | `references/lecture.md`、`references/practice.md` |
@@ -136,8 +136,7 @@ whenToUse: 用户提到考试倒计时、发来试卷/模拟卷/考试大纲/老
 | 完全没学过、明天就考 | 只押能覆盖 50–60 分的模板题，开头写明"这是赌，不是复习" |
 | 只想刷题不看讲解 | 先做题，用错题反推缺哪一节，把那节讲解当详解写 |
 | 想冲高分 | S 级先保底，再加「难题专项 + 压缩时间训练」；不要用难题开局 |
-| 卷子是扫描件 | 走视觉转写，见 `references/delivery.md`；先转 1 份验质量再批量转 |
-| 卷子公式密集（数学/物理） | `extract --with-pages`：文本层里的公式必错，以页面图为准 |
+| 卷子是扫描件 / 拍照 | 同样读图转写，见 `references/delivery.md`；先转 1 页验质量再批量转，看不清的标「（?）」 |
 | 时间只够审一半 | 至少审完 **S 级讲解 + 对应详解**，报告里写清哪部分未审；不许假装审过 |
 
 ## 8. 资源索引
@@ -155,7 +154,7 @@ whenToUse: 用户提到考试倒计时、发来试卷/模拟卷/考试大纲/老
 | `references/subject-profiles.md` | 科目不是计算型时，先判类型再动手 |
 | `references/delivery.md` | 目录命名、公式约定、增量维护 |
 | `templates/*.md` | 直接复制改写的骨架 |
-| `scripts/pdf_prepare.py` | P1，卷子入库（扫描件自动转页面图） |
+| `scripts/pdf_prepare.py` | P1，PDF 逐页渲染成 PNG，供读图转写 |
 | `scripts/audit_scan.py` | P4.5，机械扫描：LaTeX 结构、答案缺失、禁词、同型引用 |
 | `scripts/check_coverage.py` | P5，交付自检（先读 `scripts/README.md` 拿调用约定） |
 | `scripts/README.md` | 脚本怎么调、路径约定、退出码含义 |
