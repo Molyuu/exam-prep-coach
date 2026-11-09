@@ -235,7 +235,7 @@ def main():
             print(f"   {i['path']}  ({i['size']})")
         print(f"   👉 逐页读图转写到：{r['md_target']}")
     if any(r["ok"] for r in results):
-        print("\n转写要求见 references/delivery.md §4：先转 1 页核对质量再批量；"
+        print("\n转写要求见 references/write.md §1：先转 1 页核对质量再批量；"
               "公式看不清就标「（?）」，禁止猜写。")
     return 1 if failed else 0
 
