@@ -8,7 +8,9 @@
   不抽文本层：PDF 文本层的公式、上下标、分式基本必错，Symbol 字体还会把希腊字母解成拉丁字母。
   一律以页面图为准，由 agent 逐页看图转写。
 
-依赖：python3 标准库 + macOS 自带的 swiftc/swift（Xcode Command Line Tools）。
+依赖：python3 标准库 + 任一渲染器，按顺序选用：
+  macOS 自带的 swiftc/swift（Xcode Command Line Tools）→ poppler 的 pdftoppm → mupdf 的 mutool。
+  Linux：apt install poppler-utils（或 mupdf-tools）；Windows：装 poppler 并把 bin 加进 PATH。
 退出码：0 全部成功；1 部分 PDF 失败；2 参数/环境错误。
 """
 import argparse
@@ -71,8 +73,12 @@ class PdfError(Exception):
     """可直接展示给用户的错误。"""
 
 
-def renderer():
-    """→ 调用渲染器的命令前缀。优先用 swiftc 编译一次并缓存，失败再退回 swift 解释执行。"""
+class EnvError(PdfError):
+    """环境缺渲染器：后面的 PDF 也必然失败。"""
+
+
+def swift_renderer():
+    """→ 调用 Swift 渲染器的命令前缀；没有 Swift 返回 None。优先用 swiftc 编译一次并缓存，失败再退回 swift 解释执行。"""
     tag = hashlib.sha1(SWIFT_SRC.encode()).hexdigest()[:12]
     cache = Path.home() / "Library" / "Caches" / "exam-prep-coach"
     binary = cache / f"pdfrender-{tag}"
@@ -89,7 +95,66 @@ def renderer():
             return [str(binary)]
     if shutil.which("swift"):
         return ["swift", str(src)]
-    raise PdfError("缺少 swiftc/swift：逐页渲染需要 Xcode Command Line Tools（xcode-select --install）")
+    return None
+
+
+def backend():
+    """→ ("swift", 命令前缀) / ("pdftoppm", 路径) / ("mutool", 路径)。"""
+    if sys.platform == "darwin":
+        cmd = swift_renderer()
+        if cmd:
+            return "swift", cmd
+    for tool in ("pdftoppm", "mutool"):
+        path = shutil.which(tool)
+        if path:
+            return tool, path
+    raise EnvError("找不到 PDF 渲染器：macOS 装 Xcode Command Line Tools（xcode-select --install）；"
+                   "其他系统装 poppler-utils（pdftoppm）或 mupdf-tools（mutool）任一")
+
+
+def png_size(path):
+    """读 PNG 头里的宽高 → (w, h)。"""
+    head = Path(path).read_bytes()[16:24]
+    return int.from_bytes(head[:4], "big"), int.from_bytes(head[4:], "big")
+
+
+def run_tool(cmd, name):
+    """跑外部渲染命令，把常见失败翻译成可读错误。"""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        raise PdfError(f"{name}：渲染超时（>{TIMEOUT}s），试试降低 --dpi")
+    if r.returncode:
+        err = (r.stderr or r.stdout).strip()
+        if "password" in err.lower() or "encrypt" in err.lower():
+            raise PdfError(f"{name}：PDF 有打开密码，请先解密")
+        raise PdfError(f"{name}：渲染失败（PDF 可能已损坏）：{err[-400:]}")
+
+
+def render_external(tool, exe, pdf, pages_dir, stem, dpi):
+    """pdftoppm / mutool 逐页渲染 → [(路径, "宽x高")]，命名与 Swift 渲染器一致：<stem>-pNN.png。"""
+    with tempfile.TemporaryDirectory(dir=pages_dir) as tmp:
+        if tool == "pdftoppm":     # 输出 page-1.png 或 page-01.png（补零位数随总页数变）
+            run_tool([exe, "-png", "-r", str(dpi), str(pdf), str(Path(tmp) / "page")], pdf.name)
+        else:
+            run_tool([exe, "draw", "-q", "-r", str(dpi), "-o", str(Path(tmp) / "page-%d.png"), str(pdf)], pdf.name)
+        pages = sorted(Path(tmp).glob("page-*.png"), key=lambda q: int(q.stem.rsplit("-", 1)[1]))
+        out = []
+        for q in pages:
+            n = int(q.stem.rsplit("-", 1)[1])
+            dst = pages_dir / f"{stem}-p{n:02d}.png"
+            q.replace(dst)
+            w, h = png_size(dst)
+            if max(w, h) > MAX_SIDE:   # 大幅面页：按长边上限单页重渲
+                if tool == "pdftoppm":
+                    run_tool([exe, "-png", "-singlefile", "-f", str(n), "-l", str(n), "-scale-to", str(MAX_SIDE),
+                              str(pdf), str(dst.with_suffix(""))], pdf.name)
+                else:
+                    run_tool([exe, "draw", "-q", "-w", str(MAX_SIDE), "-h", str(MAX_SIDE), "-o", str(dst),
+                              str(pdf), str(n)], pdf.name)
+                w, h = png_size(dst)
+            out.append((str(dst), f"{w}x{h}"))
+    return out
 
 
 def render(pdf, outdir, dpi):
@@ -103,7 +168,12 @@ def render(pdf, outdir, dpi):
     pages_dir.mkdir(parents=True, exist_ok=True)
     for old in pages_dir.glob(f"{stem}-p*.png"):      # 清掉旧渲染，避免页数变少后残留
         old.unlink()
-    cmd = renderer() + [str(pdf.resolve()), str(pages_dir.resolve()), stem, str(dpi), str(MAX_SIDE)]
+    tool, exe = backend()
+    if tool != "swift":
+        images = [{"path": p, "size": sz} for p, sz in render_external(tool, exe, pdf.resolve(),
+                                                                        pages_dir.resolve(), stem, dpi)]
+        return finish(pdf, stem, outdir, images)
+    cmd = exe + [str(pdf.resolve()), str(pages_dir.resolve()), stem, str(dpi), str(MAX_SIDE)]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
@@ -116,6 +186,11 @@ def render(pdf, outdir, dpi):
         raise PdfError(f"{pdf.name}：渲染失败：{(r.stderr or r.stdout).strip()[-400:]}")
     images = [{"path": p, "size": s} for ln in r.stdout.splitlines() if "\t" in ln
               for p, s in [ln.rsplit("\t", 1)]]
+    return finish(pdf, stem, outdir, images)
+
+
+def finish(pdf, stem, outdir, images):
+    """渲染结果的共用校验与汇总。"""
     if not images:
         raise PdfError(f"{pdf.name}：没有渲染出任何页面")
     # 防呆：渲染器静默出白纸时所有页面完全同哈希；宁可报错，也别让 agent 去"转写"白纸。
@@ -142,7 +217,7 @@ def main():
         try:
             results.append({"ok": True, **render(f, outdir, args.dpi)})
         except PdfError as e:
-            if "swift" in str(e):                       # 环境问题，后面的也必然失败
+            if isinstance(e, EnvError):                 # 环境问题，后面的也必然失败
                 print(f"❌ {e}", file=sys.stderr)
                 return 2
             failed = True

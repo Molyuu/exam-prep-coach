@@ -26,7 +26,7 @@ git clone https://github.com/Molyuu/exam-prep-coach.git ~/.codex/skills/exam-pre
 
 ## 脚本
 
-纯 Python 3 标准库；仅 `pdf_prepare.py` 需要 macOS + Xcode Command Line Tools。用法见 `scripts/README.md`，流程细节见 `SKILL.md`。
+纯 Python 3 标准库；仅 `pdf_prepare.py` 需要外部渲染器：macOS 用自带 Swift（Xcode Command Line Tools），其他系统装 poppler（`pdftoppm`）或 mupdf（`mutool`）任一即可。用法见 `scripts/README.md`，流程细节见 `SKILL.md`。
 
 ## License
 
