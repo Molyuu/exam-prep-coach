@@ -13,6 +13,8 @@
   ⑤ 五件产物齐全：错题表.md、AGENTS.md（缺了只提示，不判失败）
 硬失败 exit 1，全通过 exit 0；有提示但硬项全过也 exit 0，只是收工语会变成"需人工确认"。
   加 --strict：② 之外的提示项（含 ⑤ 三件产物与审查报告）全部升级为硬失败，交付前建议用它跑一遍。
+  加 --partial：按天滚动交付的中间天用。② 里尚未产出的 S/A 考点只告警不判失败（空壳小节仍判失败）；
+  与 --strict 互斥，最后一天必须去掉 --partial、改用 --strict。
 """
 import argparse
 import json
@@ -110,7 +112,7 @@ def loose_hit(title, text):
     return None
 
 
-def check(root):
+def check(root, partial=False):
     res = {"dir": str(root), "artifacts": {}, "checks": [], "missing": [], "warnings": []}
     route_f = find(root, ["复习路线*.md", "*路线*.md"])
     lecture_f = find(root, ["知识点讲解*.md", "*讲解*.md"])
@@ -183,8 +185,11 @@ def check(root):
                 only_one.append(f"{grade}{num} {title}")
         bad = miss_lec + miss_ex
         add("② S/A 考点覆盖（讲解/习题）", not bad,
-            f"{len(entries) - len(set(miss_lec) | set(miss_ex))}/{len(entries)} 个 S/A 条目在讲解与习题集均有命中")
-        if bad:
+            f"{len(entries) - len(set(miss_lec) | set(miss_ex))}/{len(entries)} 个 S/A 条目在讲解与习题集均有命中"
+            + ("（--partial：未产出的考点只告警）" if partial and bad else ""), hard=not partial)
+        if bad and partial:
+            res["warnings"].append("尚未产出（滚动交付，后续天补齐）：" + "、".join(sorted(set(miss_lec) | set(miss_ex))))
+        elif bad:
             res["missing"].append("讲解缺：" + "、".join(miss_lec) if miss_lec else "")
             res["missing"].append("习题集缺：" + "、".join(miss_ex) if miss_ex else "")
         if miss_sol:
@@ -269,13 +274,17 @@ def main():
     ap.add_argument("dir", nargs="?", help="工作区目录，默认当前目录（通常是 ai_study）")
     ap.add_argument("--dir", dest="dir_opt", help="同上（等价写法）")
     ap.add_argument("--strict", action="store_true", help="交付用：提示项（含审查报告）全部升级为硬失败")
+    ap.add_argument("--partial", action="store_true", help="滚动交付中间天：未产出的 S/A 考点只告警")
     ap.add_argument("--json", action="store_true", help="输出机读 JSON")
     args = ap.parse_args()
+    if args.strict and args.partial:
+        print("❌ --strict 与 --partial 不能同时用：中间天用 --partial，最后一天用 --strict", file=sys.stderr)
+        return 2
     root = Path(args.dir_opt or args.dir or ".").resolve()
     if not root.is_dir():
         print(f"❌ 目录不存在：{root}", file=sys.stderr)
         return 2
-    res = check(root)
+    res = check(root, partial=args.partial)
     if args.strict:
         for c in res["checks"]:
             c["hard"] = True
