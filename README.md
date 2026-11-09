@@ -26,7 +26,7 @@ git clone https://github.com/Molyuu/exam-prep-coach.git ~/.codex/skills/exam-pre
 
 ## 脚本
 
-纯 Python 3 标准库；仅 `pdf_prepare.py` 需要外部渲染器：macOS 用自带 Swift（Xcode Command Line Tools），其他系统装 poppler（`pdftoppm`）或 mupdf（`mutool`）任一即可。用法见 `scripts/README.md`，流程细节见 `SKILL.md`。
+只有一个：`scripts/pdf_prepare.py`，把 PDF 卷子逐页渲染成图片供读图转写。纯 Python 3 标准库 + 任一渲染器：macOS 用自带 Swift（Xcode Command Line Tools），其他系统装 poppler（`pdftoppm`）或 mupdf（`mutool`）。交付前的检查由模型按 `SKILL.md` §6 的清单逐条自检。
 
 ## License
 
