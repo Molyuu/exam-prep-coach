@@ -82,8 +82,7 @@ python3 "$SKILL/scripts/pdf_prepare.py" <PDF...> --out markdown/   # 小字看�
     ├── 知识点讲解_Day1-N.md
     ├── 习题集_Day1-N.md       # 只放题，不放答案
     ├── 习题集_详解.md         # 末尾附覆盖矩阵
-    ├── 审查报告.md
-    └── 错题表.md
+    └── 审查报告.md
 ```
 
 - 滚动交付时新的一天**追加进同一文件**，不每天新建；已发布的编号只增不改。
@@ -94,7 +93,7 @@ python3 "$SKILL/scripts/pdf_prepare.py" <PDF...> --out markdown/   # 小字看�
   - `$$` 块独立成行，前后留空行；
   - 公式块前不加 `+`、`-` 等列表符号。
 - 工作区没有 `AGENTS.md` 就把 `templates/AGENTS.md` 原样复制过去；已有但没写公式约定，就把那一节追加进去。
-- 骨架直接复制 `templates/` 改：`复习路线.md`、`每日三件套.md`、`错题表.md`。
+- 骨架直接复制 `templates/` 改：`复习路线.md`、`每日三件套.md`。
 
 ## 5. 写作口径
 
